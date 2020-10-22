@@ -1,17 +1,22 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 Description: |
-  Cloudformation template for milliseconds converter application. This app runs on application load balancer. In addition, it is observed by Autoscaling Group
+  Cloudformation template for milliseconds converter application. This app runs on application 
+  load balancer. In addition, it is observed by Autoscaling Group.
+  
+  
+Parameters:
+  
 Resources:
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription:  Enable HTTP for ALB
+      GroupDescription: Enable HTTP for ALB
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+
   WebServerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -24,37 +29,37 @@ Resources:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
+          CidrIp: 0.0.0.0/0
           SourceSecurityGroupId: !GetAtt ALBSecurityGroup.GroupId
-  WebServerLaunchTemplate:
+  
+  WebServerLaunchTemplateName:
     Type: AWS::EC2::LaunchTemplate
     Properties:
-      LaunchTemplateData: 
+      LaunchTemplateData:
         ImageId: ami-0947d2ba12ee1ff75
         InstanceType: t2.micro
-        KeyName: handson.pem
+        KeyName: handson
         SecurityGroupIds: 
           - !GetAtt WebServerSecurityGroup.GroupId
         TagSpecifications: 
-          - ResorceType: instance
-            Tag: 
+          - ResourceType: instance
+            Tag:
               - Key: Name
                 Value: !Sub Web Server of ${AWS::StackName}
-        UserData: 
+        UserData:
           Fn::Base64:
-            !Sub |
+            !Sub 
               #! /bin/bash
               yum update -y
               yum install python3 -y
               pip3 install flask
-              TOKEN="c6ca107b1b5d2cd37107256a3bf271a67c1cd536"
-              FOLDER="xxxxxxxxxxxxxxxxxxxxxxxxxx"
+              TOKEN="b7ce77a10b9553d1edf10017d9efb920060e4863"
+              FOLDER="XXXXXXXXX"
               curl -s --create-dirs -o "/home/ec2-user/templates/index.html" -L "$FOLDER"templates/index.html
               curl -s --create-dirs -o "/home/ec2-user/templates/result.html" -L "$FOLDER"templates/result.html
-              curl -s --create-dirs -o "/home/ec2-user/app.py" -L "$FOLDER"app.py
-              python3 /home/ec2-user/app.py
+              curl -s --create-dirs -o "/home/ec2-user/templates/app.py" -L "$FOLDER"app.py
+              python3 /home/ec2-user/app.py      
+
+
+
 Outputs:
-
-
-
-
-
