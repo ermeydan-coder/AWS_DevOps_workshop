@@ -8,7 +8,7 @@ At the end of this coding challenge, students will be able to;
 
 - Analyze a problem, identify, and apply programming knowledge for an appropriate solution.
 
-- Implement conditional statements effectively to solve a problem.
+- Implement conditional stateFind the Non-Repeated Valuesments effectively to solve a problem.
 
 - Implement loops to solve a problem.
 
