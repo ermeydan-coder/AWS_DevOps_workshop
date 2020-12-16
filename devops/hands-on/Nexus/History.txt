@@ -1,0 +1,50 @@
+1 sudo yum update
+  2 sudo yum install java-1.8.0-openjdk
+  3 sudo wget httpsrepos.fedorapeople.orgreposdchenapache-mavenepel-apache-maven.repo -O etcyum.repos.d
+  4 epel-apache-maven.repo
+  5 sudo sed -i s$releasever6g etcyum.repos.depel-apache-maven.repo
+  6 sudo wget httpsrepos.fedorapeople.orgreposdchenapache-mavenepel-apache-maven.repo -O etcyum.repos.depel-apache-maven.repo
+  7 sudo sed -i s$releasever6g etcyum.repos.depel-apache-maven.repo
+  8 sudo yum install -y apache-maven
+  9 mvn -version
+  10 ls
+  11 cd ..
+  12 ls
+  13 cd ec2-user
+  14 sudo mkdir nexus-installation
+  15 ls
+  16 cd nexus installation
+  17 ls
+  18 cd nexus-installation
+  19 ls
+  20 sudo wget httpsdownload.sonatype.comnexus3latest-unix.tar.gz
+  21 ls
+  22 sudo tar xvzf latest-unix.tar.gz
+  23 ls
+  24 cd nexus-3.29.0-02
+  25 ls
+  26 cd bin
+  27 ls
+  28 sudo .nexus run 
+  29 history
+
+
+kurulumda sıkıntı yaşayan arkadaşlar yeniden ec2 t2.medium kurup 8081 portunu açık aşağıdaki kodu komple kopyalayıp yapıştırabilirler
+
+
+cd ~
+sudo yum update -y
+sudo yum install java-1.8.0-openjdk
+sudo wget https://repos.fedorapeople.org/repos/dchen/apache-maven/epel-apache-maven.repo -O /etc/yum.repos.d/epel-apache-maven.repo
+sudo sed -i s/\$releasever/6/g /etc/yum.repos.d/epel-apache-maven.repo
+sudo yum install -y apache-maven
+mkdir nexus-installation && cd nexus-installation
+sudo wget https://download.sonatype.com/nexus/3/latest-unix.tar.gz
+sudo tar xvzf latest-unix.tar.gz
+cd nexus-3.29.0-02/bin && sudo ./nexus run
+
+Kullanıcı adı:admin
+şifre için
+cat /home/ec2-user/sonatype-work/nexus3/admin.password
+
+http://localhost:8081

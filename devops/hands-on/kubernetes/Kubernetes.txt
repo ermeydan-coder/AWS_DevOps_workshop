@@ -1,0 +1,28 @@
+1  cat << EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+    2  sudo sysctl --system
+    3  clear
+    4  docker image ls
+    5  clear
+    6  docker image ls
+    7  sudo kubeadm config images pull
+    8  sudo kubeadm init --apiserver-advertise-address=172.31.40.215 --pod-network-cidr=172.16.0.0/16
+    9  mkdir -p $HOME/.kube
+   10  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+   11  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+   12  kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+   13  kubectl get nodes
+   14  clear
+   15  sudo kubeadm reset
+   16  clear
+   17  sudo kubeadm init --apiserver-advertise-address=172.31.40.215 --pod-network-cidr=172.16.0.0/16
+   18  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+   19  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+   20  kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+   21  kubectl get nodes
+   22  clear
+   23  kubectl get nodes
+   24  history | grep history.txt
+   25  history | tee history.txt
