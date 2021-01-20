@@ -1,156 +1,50 @@
 pipeline {
-    agent { node { label 'swarm-ci' } }
-
+    agent { label "master" }
     environment {
-        TEST_PREFIX = "test-IMAGE"
-        TEST_IMAGE = "${env.TEST_PREFIX}:${env.BUILD_NUMBER}"
-        TEST_CONTAINER = "${env.TEST_PREFIX}-${env.BUILD_NUMBER}"
-        REGISTRY_ADDRESS = "my.registry.address.com"
-
-        SLACK_CHANNEL = "#deployment-notifications"
-        SLACK_TEAM_DOMAIN = "MY-SLACK-TEAM"
-        SLACK_TOKEN = credentials("slack_token")
-        DEPLOY_URL = "https://deployment.example.com/"
-
-        COMPOSE_FILE = "docker-compose.yml"
-        REGISTRY_AUTH = credentials("docker-registry")
-        STACK_PREFIX = "my-project-stack-name"
+        ECR_REGISTRY = "016356827677.dkr.ecr.us-east-1.amazonaws.com"
+        APP_REPO_NAME= "clarusway-repo/phonebook-app"
+        PRIVATE_IP=
     }
-
     stages {
-        stage("Prepare") {
+        stage('Build Docker Image') {
             steps {
-                bitbucketStatusNotify buildState: "INPROGRESS"
+                sh 'aws ecr create-repository \
+                    --repository-name $APP_REPO_NAME \
+                    --image-scanning-configuration scanOnPush=false \
+                    --image-tag-mutability IMMUTABLE \
+                    --region us-east-1'
+                sh 'docker build --force-rm -t "$ECR_REGISTRY/$APP_REPO_NAME:latest" .'
+                sh 'docker image ls'
+            }
+        }
+        stage('Push Image to ECR Repo') {
+            steps {
+                sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "$ECR_REGISTRY"'
+                sh 'docker push "$ECR_REGISTRY/$APP_REPO_NAME:latest"'
+            }
+        }
+        stage('CloudFromation Template creating') {
+            steps {
+                sh 'aws cloudformation create-stack --stack-name swarmcluster \
+                    --template-body file://phonebook-cfn-template.yml \
+                    --parameters ParameterKey=KeyPairName,ParameterValue=secure \
+                    --region us-east-1 --capabilities CAPABILITY_IAM'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sh 'sleep 10m'
+                sh 'ssh -i "secure.pem" ec2-user@ec2-18-234-164-93.compute-1.amazonaws.com'
+                sh 'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "$ECR_REGISTRY"'
+                sh 'docker stack deploy -c ./docker-compose.yml phonebook-app'
             }
         }
 
-        stage("Build and start test image") {
-            steps {
-                sh "docker-composer build"
-                sh "docker-compose up -d"
-                sh """
-                    docker run --rm \
-                        -v '${env.WORKSPACE}':'/project':ro \
-                        -v /var/run/docker.sock:/var/run/docker.sock:ro \
-                        -e TIMEOUT=30 \
-                        -e COMPOSE_PROJECT_NAME=\$(basename \"'${env.WORKSPACE}'\") \
-                        softonic/compose-project-is-up
-                """
-            }
-        }
-
-        stage("Run tests") {
-            steps {
-                sh "docker-compose exec -T php-fpm composer --no-ansi --no-interaction tests-ci"
-                sh "docker-compose exec -T php-fpm composer --no-ansi --no-interaction behat-ci"
-            }
-
-            post {
-                always {
-                    junit "build/junit/*.xml"
-                    step([
-                        $class: "CloverPublisher",
-                        cloverReportDir: "build/coverage",
-                        cloverReportFileName: "clover.xml"
-                    ])
-                }
-            }
-        }
-
-        stage("Determine new version") {
-            when {
-                branch "master"
-            }
-
-            steps {
-                script {
-                    env.DEPLOY_VERSION = sh (returnStdout: true, script: "docker run --rm -v '${env.WORKSPACE}':/repo:ro softonic/ci-version:0.1.0 --compatible-with package.json").trim()
-                    env.DEPLOY_MAJOR_VERSION = sh (returnStdout: true, script: "echo '${env.DEPLOY_VERSION}' | awk -F'[ .]' '{print \$1}'").trim()
-                    env.DEPLOY_COMMIT_HASH = sh (returnStdout: true, script: "git rev-parse HEAD | cut -c1-7").trim()
-                    env.DEPLOY_BUILD_DATE = sh (returnStdout: true, script: "date -u +'%Y-%m-%dT%H:%M:%SZ'").trim()
-
-                    env.DEPLOY_STACK_NAME = "${env.STACK_PREFIX}-v${env.DEPLOY_MAJOR_VERSION}"
-                    env.IS_NEW_VERSION = sh (returnStdout: true, script: "[ '${env.DEPLOY_VERSION}' ] && echo 'YES'").trim()
-                }
-            }
-        }
-
-        stage("Create new version") {
-            when {
-                branch "master"
-                environment name: "IS_NEW_VERSION", value: "YES"
-            }
-
-            steps {
-                script {
-                    sshagent(['ci-ssh']) {
-                        sh """
-                            git config user.email "ci-user@email.com"
-                            git config user.name "Jenkins"
-                            git tag -a "v${env.DEPLOY_VERSION}" \
-                                -m "Generated by: ${env.JENKINS_URL}" \
-                                -m "Job: ${env.JOB_NAME}" \
-                                -m "Build: ${env.BUILD_NUMBER}" \
-                                -m "Env Branch: ${env.BRANCH_NAME}"
-                            git push origin "v${env.DEPLOY_VERSION}"
-                        """
-                    }
-                }
-
-                sh "docker login -u=$REGISTRY_AUTH_USR -p=$REGISTRY_AUTH_PSW ${env.REGISTRY_ADDRESS}"
-                sh "docker-compose -f ${env.COMPOSE_FILE} build"
-                sh "docker-compose -f ${env.COMPOSE_FILE} push"
-            }
-        }
-
-        stage("Deploy to production") {
-            agent { node { label "swarm-prod" } }
-
-            when {
-                branch "master"
-                environment name: "IS_NEW_VERSION", value: "YES"
-            }
-
-            steps {
-                sh "docker login -u=$REGISTRY_AUTH_USR -p=$REGISTRY_AUTH_PSW ${env.REGISTRY_ADDRESS}"
-                sh "docker stack deploy ${env.DEPLOY_STACK_NAME} -c ${env.COMPOSE_FILE} --with-registry-auth"
-            }
-
-            post {
-                success {
-                    slackSend (
-                        teamDomain: "${env.SLACK_TEAM_DOMAIN}",
-                        token: "${env.SLACK_TOKEN}",
-                        channel: "${env.SLACK_CHANNEL}",
-                        color: "good",
-                        message: "${env.STACK_PREFIX} production deploy: *${env.DEPLOY_VERSION}*. <${env.DEPLOY_URL}|Access service> - <${env.BUILD_URL}|Check build>"
-                    )
-                }
-
-                failure {
-                    slackSend (
-                        teamDomain: "${env.SLACK_TEAM_DOMAIN}",
-                        token: "${env.SLACK_TOKEN}",
-                        channel: "${env.SLACK_CHANNEL}",
-                        color: "danger",
-                      message: "${env.STACK_PREFIX} production deploy failed: *${env.DEPLOY_VERSION}*. <${env.BUILD_URL}|Check build>"
-                    )
-                }
-            }
-        }
     }
-
     post {
-      always {
-          sh "docker-compose down || true"
-      }
-
-      success {
-          bitbucketStatusNotify buildState: "SUCCESSFUL"
-      }
-
-      failure {
-          bitbucketStatusNotify buildState: "FAILED"
-      }
+        always {
+            echo 'Deleting all local images'
+            sh 'docker image prune -af'
+        }
     }
 }
