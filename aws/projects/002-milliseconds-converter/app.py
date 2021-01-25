@@ -1,7 +1,4 @@
-
-from flask.globals import request
-from app import main_get, main_post
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
@@ -19,20 +16,18 @@ def convert(millisecond):
 
     return f'{hours} hour/s '*(hours!=0) + f'{minutes} minute/s '*(minutes!=0) + f'{seconds} second/s '*(seconds!=0) or f'just {millisecond} millisecond/s'
 
-# print(convert(1235646))
-
 @app.route('/', methods=['GET'])
 def main_get():
-    return render_template('index.html', developer_name='E2140-Musa', not_valid = False)
+        return render_template('index.html', developer_name ='Serdar', not_valid = False)
 
 @app.route('/', methods=['POST'])
 def main_post():
-    beta = request.form['number']
-    if not beta.isdecimal():
-        return render_template('index.html', developer_name='E2140-Musa', not_valid = True)
-    if not (0<int(beta)):
-        return render_template('index.html', developer_name='E2140-Musa', not_valid = True)
-    return render_template('result.html', developer_name='E2140-Musa', milliseconds =int(beta), result = convert(int(beta)))
+    alpha = request.form['number']
+    if not alpha.isdecimal():
+        return render_template('index.html', developer_name = 'Serdar', not_valid = True)
+    if not (0 < int(alpha)):
+        return render_template('index.html', developer_name = 'Serdar', not_valid = True)
+    return render_template('result.html', developer_name=' Serdar', milliseconds = alpha, result = convert(int(alpha)) )
 
 if __name__ == '__main__':
     #app.run(debug=True)
